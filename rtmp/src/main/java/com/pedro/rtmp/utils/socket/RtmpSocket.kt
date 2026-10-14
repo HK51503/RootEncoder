@@ -27,6 +27,12 @@ package com.pedro.rtmp.utils.socket
  */
 abstract class RtmpSocket {
 
+  @Volatile
+  var bytesWritten = 0L
+    protected set
+  @Volatile
+  var onFlush: ((bytesWritten: Long) -> Unit)? = null
+
   abstract suspend fun flush(isPacket: Boolean = false)
   abstract suspend fun connect()
   abstract suspend fun close()

@@ -26,8 +26,11 @@ import java.io.InputStream
 /**
  * Created by pedro on 21/04/21.
  */
-class Acknowledgement(private var sequenceNumber: Int = 0):
+class Acknowledgement(sequenceNumber: Int = 0):
     RtmpMessage(BasicHeader(ChunkType.TYPE_0, ChunkStreamId.PROTOCOL_CONTROL.mark)) {
+
+  var sequenceNumber = sequenceNumber
+    private set
 
   override fun readBody(input: InputStream) {
     sequenceNumber = input.readUInt32()

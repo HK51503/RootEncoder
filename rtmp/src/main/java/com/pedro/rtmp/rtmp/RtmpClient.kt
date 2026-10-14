@@ -40,6 +40,7 @@ import com.pedro.rtmp.rtmp.message.SetPeerBandwidth
 import com.pedro.rtmp.rtmp.message.WindowAcknowledgementSize
 import com.pedro.rtmp.rtmp.message.control.Type
 import com.pedro.rtmp.rtmp.message.control.UserControl
+import com.pedro.rtmp.utils.AcknowledgementTracker
 import com.pedro.rtmp.utils.AuthUtil
 import com.pedro.rtmp.utils.socket.RtmpSocket
 import com.pedro.rtmp.utils.socket.TcpSocket
@@ -115,6 +116,14 @@ class RtmpClient(private val connectChecker: ConnectChecker) {
   var rtt = 0 //in micro
     private set
   private val pingTs = AtomicLong(0)
+  private val acknowledgementTracker = AcknowledgementTracker()
+
+  val acknowledgementRtt: Long
+    get() = acknowledgementTracker.rtt
+  val bytesInFlight: Long
+    get() = acknowledgementTracker.bytesInFlight
+  val acknowledgementsReceived: Long
+    get() = acknowledgementTracker.acknowledgementsReceived
 
   /**
    * Add certificates for TLS connection
@@ -172,6 +181,12 @@ class RtmpClient(private val connectChecker: ConnectChecker) {
 
   fun setDelay(millis: Long) {
     rtmpSender.setDelay(millis)
+  }
+
+  fun setAcknowledgementWindowSize(size: Int) {
+    if (!isStreaming) {
+      commandsManager.config.requestedAcknowledgementWindowSize = size
+    }
   }
 
   fun setWriteChunkSize(chunkSize: Int) {
@@ -357,6 +372,11 @@ class RtmpClient(private val connectChecker: ConnectChecker) {
     val timestamp = TimeUtils.getCurrentTimeMillis() / 1000
     val handshake = Handshake()
     if (!handshake.sendHandshake(socket)) return false
+    acknowledgementTracker.reset()
+    val handshakeBytes = socket.bytesWritten
+    socket.onFlush = { bytesWritten ->
+      acknowledgementTracker.onBytesSent(bytesWritten - handshakeBytes, TimeUtils.getCurrentTimeMicro())
+    }
     commandsManager.timestamp = timestamp.toInt()
     commandsManager.startTs = TimeUtils.getCurrentTimeNano() / 1000
     return true
@@ -379,6 +399,7 @@ class RtmpClient(private val connectChecker: ConnectChecker) {
       }
       MessageType.ACKNOWLEDGEMENT -> {
         val acknowledgement = message as Acknowledgement
+        acknowledgementTracker.onAcknowledgement(acknowledgement.sequenceNumber, TimeUtils.getCurrentTimeMicro())
       }
       MessageType.WINDOW_ACKNOWLEDGEMENT_SIZE -> {
         val windowAcknowledgementSize = message as WindowAcknowledgementSize
@@ -428,6 +449,9 @@ class RtmpClient(private val connectChecker: ConnectChecker) {
                 if (commandsManager.onAuth) {
                   onMainThread { connectChecker.onAuthSuccess() }
                   commandsManager.onAuth = false
+                }
+                if (commandsManager.config.requestedAcknowledgementWindowSize > 0) {
+                  commandsManager.sendWindowAcknowledgementSize(socket)
                 }
                 commandsManager.createStream(socket)
               }
@@ -593,6 +617,7 @@ class RtmpClient(private val connectChecker: ConnectChecker) {
     scope = CoroutineScope(Dispatchers.IO)
     publishPermitted = false
     commandsManager.reset()
+    acknowledgementTracker.reset()
     rtt = 0
   }
 

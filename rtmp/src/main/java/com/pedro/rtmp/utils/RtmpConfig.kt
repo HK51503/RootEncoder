@@ -26,4 +26,5 @@ class RtmpConfig {
   var readChunkSize = DEFAULT_CHUNK_SIZE
   var writeChunkSize = DEFAULT_CHUNK_SIZE
   var acknowledgementWindowSize = Int.MAX_VALUE
+  var requestedAcknowledgementWindowSize = 0
 }

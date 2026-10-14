@@ -38,6 +38,7 @@ class TcpSocket(
 
   override suspend fun flush(isPacket: Boolean) {
     socket.flush()
+    onFlush?.invoke(bytesWritten)
   }
 
   override suspend fun connect() {
@@ -54,30 +55,37 @@ class TcpSocket(
 
   override suspend fun write(b: Int) {
     socket.write(b)
+    bytesWritten += 1
   }
 
   override suspend fun write(b: ByteArray) {
     socket.write(b)
+    bytesWritten += b.size
   }
 
   override suspend fun write(b: ByteArray, offset: Int, size: Int) {
     socket.write(b, offset, size)
+    bytesWritten += size
   }
 
   override suspend fun writeUInt16(b: Int) {
     socket.write(b.toUInt16())
+    bytesWritten += 2
   }
 
   override suspend fun writeUInt24(b: Int) {
     socket.write(b.toUInt24())
+    bytesWritten += 3
   }
 
   override suspend fun writeUInt32(b: Int) {
     socket.write(b.toUInt32())
+    bytesWritten += 4
   }
 
   override suspend fun writeUInt32LittleEndian(b: Int) {
     socket.write(b.toUInt32LittleEndian())
+    bytesWritten += 4
   }
 
   override suspend fun read(): Int = socket.read(1)[0].toInt() and 0xff

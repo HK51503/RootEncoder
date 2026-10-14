@@ -161,7 +161,8 @@ abstract class CommandsManager {
   @Throws(IOException::class)
   suspend fun sendWindowAcknowledgementSize(socket: RtmpSocket) {
     writeSync.withLock {
-      val windowAcknowledgementSize = WindowAcknowledgementSize(config.acknowledgementWindowSize, getCurrentTimestamp())
+      val size = if (config.requestedAcknowledgementWindowSize > 0) config.requestedAcknowledgementWindowSize else config.acknowledgementWindowSize
+      val windowAcknowledgementSize = WindowAcknowledgementSize(size, getCurrentTimestamp())
       windowAcknowledgementSize.writeHeader(socket)
       windowAcknowledgementSize.writeBody(socket, config.writeChunkSize)
       socket.flush()
